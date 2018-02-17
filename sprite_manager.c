@@ -22,6 +22,20 @@ void drawSprite(SDL_Renderer* r, Image* img, int x, int y, int ind)
     SDL_RenderCopy(r, img->texture, &spr, &spr_unit);
 }
 
+void animateSprite(SDL_Renderer* r, Image* img, uint32_t spd, int x, int y, uint32_t* timer, int* ind)
+{
+    int anim = *ind;
+    drawSprite(r, img, x, y, anim);
+    if( (SDL_GetTicks() - *timer) >= spd )
+    {
+        (*ind) ++;
+        int maxind = (floor((img->surface->w) / img->spritew)-1);
+        int maxrows = img->surface->h/img->spriteh;
+        if(*ind > (maxind+1)*maxrows) *ind = 0;
+        *timer = SDL_GetTicks();
+    }
+}
+
 void drawSpriteEx(SDL_Renderer* r, Image* img, int x, int y, int ind, double angle, double xscale, double yscale, SDL_RendererFlip flip)
 {
     int width = img->spritew;
