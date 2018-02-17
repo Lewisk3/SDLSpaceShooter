@@ -32,6 +32,7 @@ void addObject(ObjectList* base, Object* value)
     current->next = malloc(sizeof(ObjectNode));
     current->next->obj = value;
     current->next->next = NULL;
+    printf("[ObjectManager: Info] Adding object: %p at %i\n", value, base->length);
     base->length++;
 }
 
@@ -72,13 +73,15 @@ Object* findObjectByType(ObjectList* base, int type, int index)
 
 void removeObjectAt(ObjectList* base, int index)
 {
+    printf("[ObjectManager: Info] Removing object at %i \n", index-1);
     if(index > base->length)
     {
-        puts("[ObjectManager: Fatal Error] Invalid node index.");
+        printf("[ObjectManager: Fatal Error] Invalid node index: %i > %i \n",index-1, base->length);
         return;
     }
     ObjectNode *prev = NULL;
     ObjectNode *current = base->objs;
+
 
     // Loop through each element until index is reached.
     while(index-- > 0 && current != NULL)
