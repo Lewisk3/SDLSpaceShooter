@@ -1,4 +1,5 @@
 #include <SDL2/SDL.h>
+#include <stdbool.h>
 
 #ifndef STRUCTDATA_H
 #define STRUCTDATA_H
@@ -8,6 +9,8 @@ typedef enum
     OBJ_BASICENEMY,
     OBJ_SMALLBULLET,
     OBJ_DEAD,
+    IMG_TIMED,
+    OBJ_EXPLOSION,
 } ObjectTypes;
 
 typedef struct
@@ -28,6 +31,7 @@ typedef struct
    SDL_Rect unit;
    int spritew;
    int spriteh;
+   uint32_t deltatime;
    char* name;
 } Image;
 
@@ -41,6 +45,7 @@ typedef struct
     double angle;
     float speed;
     int firerate;
+    uint32_t* timers;
     float friction;
     float xvel;
     float yvel;
@@ -59,13 +64,12 @@ typedef struct
 {
     int type;
     int sprite_index;
+    uint32_t deltatime;
     double angle;
     double xscale;
     double yscale;
-    int x;
-    int y;
-    int w;
-    int h;
+    bool solid;
+    SDL_Rect pos;
 
 } Object;
 
@@ -73,13 +77,29 @@ typedef struct
 {
     int type;
     int sprite_index;
+    uint32_t deltatime;
     double angle;
     double xscale;
     double yscale;
-    int x;
-    int y;
-    int w;
-    int h;
+    bool solid;
+    SDL_Rect pos;
+
+    int hp;
+
+} Enemy;
+
+
+typedef struct
+{
+    int type;
+    int sprite_index;
+    uint32_t deltatime;
+    double angle;
+    double xscale;
+    double yscale;
+    bool solid;
+    SDL_Rect pos;
+
     int dmg;
     int speed;
     int xvel;
