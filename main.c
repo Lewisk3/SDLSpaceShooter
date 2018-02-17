@@ -11,11 +11,14 @@
 #include "structdata.h"
 #include "object_manager.h"
 #include "game_objects.h"
+#include "sprite_manager.h"
+
 
 #define WINDOW_WIDTH 320
 #define WINDOW_HEIGHT 480
 #define FRAMERATE 75
 #define PHYS_TICKS 60
+#define PI 3.14159
 
 
 enum {
@@ -24,6 +27,7 @@ enum {
     BT_LEFT    = 0x04,
     BT_RIGHT   = 0x08,
     BT_FIRE    = 0x10,
+    BT_ALTFIRE = 0x20,
 };
 
 typedef enum {
@@ -47,13 +51,14 @@ typedef enum {
     static Image* playerships;
     static Image* enemyships;
     static Image* basicback;
+    static Image* lasers;
 
 // Declarations
 
 Image* loadImage(SDL_Renderer*, char*, int, int);
+Image* loadSprites(SDL_Renderer*, char*, int, int, int, int);
 void freeImage(Image*);
 void drawImage(SDL_Renderer*, Image*);
-void drawSprite(SDL_Renderer*, Image*, int, int, int, int);
 void WindowHandler(SDL_Event* );
 void ButtonHandler(InputButtons*, SDL_Event* , uint8_t* );
 SDL_Keycode getKey(SDL_Event* );
@@ -119,11 +124,11 @@ int main(int argc, char** argv)
         float frametime = (float) (SDL_GetTicks() - ticks_prev);
         int framerate = (int) (1000/frametime);
         sprintf(title, "FPS: %i", framerate);
+
         Draw();
     }
 
 
-    // Wait then close window.
     freeImage(plr->sprite);
     free(title);
     free(plr);
@@ -140,23 +145,27 @@ void Initalize()
     // Load Resources / Allocate objects.
     ticks_prev = SDL_GetTicks();
 
-    boundkeys.FORWARD = SDLK_w;
-    boundkeys.BACK    = SDLK_s;
-    boundkeys.LEFT    = SDLK_a;
-    boundkeys.RIGHT   = SDLK_d;
-    boundkeys.SHOOT   = SDL_BUTTON_LEFT;
-    playerships = loadImage(renderer, "Resources/ships.png",0,0);
-    enemyships = loadImage(renderer, "Resources/enemyships.png",0,0);
-    basicback = loadImage(renderer, "Resources/basicback.jpg", 0, 0);
+    boundkeys.FORWARD  = SDLK_w;
+    boundkeys.BACK     = SDLK_s;
+    boundkeys.LEFT     = SDLK_a;
+    boundkeys.RIGHT    = SDLK_d;
+    boundkeys.SHOOT    = SDL_BUTTON_LEFT;
+    boundkeys.ALTSHOOT = SDL_BUTTON_RIGHT;
+    playerships = loadSprites(renderer, "Resources/ships.png",0,0,48,45);
+    enemyships  = loadSprites(renderer, "Resources/enemyships.png",0,0,48,45);
+    basicback   = loadImage(renderer, "Resources/basicback.jpg", 0, 0);
+    lasers      = loadSprites(renderer, "Resources/lasers.png",0,0,16,22);
 
     gameobjects = createObjectList();
+
     int i;
     for(i = 0; i < 5; i++)
     {
-        Object* obj = createObject(OBJ_BASICENEMY,random_range(1, WINDOW_WIDTH-48),random_range(-550, 0),48,45,0);
+        Object* obj = createObject(OBJ_BASICENEMY,random_range(1, WINDOW_WIDTH-48),random_range(-550, 0),20,40,00);
         obj->sprite_index = 2;
         addObject(gameobjects,obj);
     }
+
 
     levelbg = malloc(sizeof(Background));
     levelbg->img = basicback;
@@ -169,9 +178,9 @@ void Initalize()
 
     plr = malloc(sizeof(Player));
     plr->sprite = playerships;
-    plr->width  = 48;
-    plr->height = 45;
-    plr->speed  = 8;
+    plr->width  = 20;
+    plr->height = 40;
+    plr->speed  = 6;
     plr->image_index = 2;
     plr->friction = 3.8;
     plr->sprite->unit.w = plr->width;
@@ -190,6 +199,13 @@ void Update()
         if(active_buttons & BT_BACK) plr->yvel += plr->speed/plr->friction;
         if(active_buttons & BT_LEFT) plr->xvel -= plr->speed/plr->friction;
         if(active_buttons & BT_RIGHT) plr->xvel += plr->speed/plr->friction;
+        if(active_buttons & BT_FIRE)
+        {
+            Bullet* newbullet = createObject(OBJ_SMALLBULLET, plr->xpos, plr->ypos - 18,8,22,sizeof(Bullet));
+            newbullet->angle = random_range(-30,30);
+            newbullet->speed = 10;
+            addObject(gameobjects, newbullet);
+        }
                 //Move player.
         if(plr->xvel >  plr->speed) plr->xvel = plr->speed;
         if(plr->xvel < -plr->speed) plr->xvel = -plr->speed;
@@ -206,8 +222,8 @@ void Update()
         if(plr->xvel > 0) plr->image_index = 3;
         if(plr->xvel >= plr->speed) plr->image_index = 4;
         if(plr->xvel < 0) plr->image_index = 1;
-        if(plr->xvel <= -plr->speed) plr->image_index = 0;
         if(abs(plr->xvel) <= 0.5) plr->image_index = 2;
+        if(plr->xvel <= -plr->speed) plr->image_index = 0;
              //Scroll background
         levelbg->cam.y -= 1;
         if(levelbg->cam.y <= 0)
@@ -222,21 +238,36 @@ void Update()
 void UpdateObjects()
 {
     ObjectNode* current = gameobjects->objs;
+    int objID = 0;
     while(current != NULL)
     {
-        switch(current->obj->type)
+        if( current->obj->type == OBJ_DEAD)
         {
-            case OBJ_BASICENEMY:
-                if(current->obj->y > WINDOW_HEIGHT+current->obj->h)
-                {
-                    current->obj->y = random_range(-500,-50);
-                    current->obj->x = random_range(0, WINDOW_WIDTH-current->obj->w);
-                }
-                current->obj->y+=2;
-            break;
-            default:
-            break;
+           if(current->next != NULL)current = current->next;
+           removeObjectAt(gameobjects, objID);
         }
+        if( current->obj->type == OBJ_BASICENEMY)
+        {
+            current->obj->xscale += 0.01;
+            current->obj->yscale += 0.01;
+            if(current->obj->y > WINDOW_HEIGHT+current->obj->h)
+            {
+               current->obj->y = random_range(-500,-50);
+               current->obj->x = random_range(0, WINDOW_WIDTH-current->obj->w);
+            }
+            current->obj->y+=2;
+        }
+        else if( current->obj->type == OBJ_SMALLBULLET)
+        {
+            Bullet* obullet = current->obj;
+            obullet->xvel = cos( (obullet->angle-90) * PI / 180)  * obullet->speed;
+            obullet->yvel = sin( (obullet->angle-90) * PI / 180 ) * obullet->speed;
+
+            obullet->x += obullet->xvel;
+            obullet->y += obullet->yvel;
+            if(obullet->y < 0) obullet->type = OBJ_DEAD;
+        }
+        objID ++;
         current = current->next;
     }
 }
@@ -247,27 +278,25 @@ void Draw()
         SDL_RenderClear(renderer);
         SDL_RenderCopy(renderer, levelbg->img->texture, &levelbg->cam, &levelbg->img->unit);
         DrawObjects();
+        drawSprite(renderer, playerships, 10,10, 2);
         SDL_RenderPresent(renderer);
 }
 void DrawObjects()
 {
     // Draw player
-    drawSprite(renderer, plr->sprite,plr->width, plr->height, plr->image_index, 0);
+    drawSpriteEx(renderer, plr->sprite, plr->xpos, plr->ypos, plr->image_index, plr->angle, 1, 1, 0);
 
     ObjectNode* current = gameobjects->objs;
-    puts("\n");
     while(current != NULL)
     {
-        printf("Object: %p \n", current );
+        //printf("Object: %p \n", current );
         switch(current->obj->type)
         {
             case OBJ_BASICENEMY:
-                enemyships->unit.x = current->obj->x;
-                enemyships->unit.y = current->obj->y;
-                enemyships->unit.w = current->obj->w;
-                enemyships->unit.h = current->obj->h;
-
-                drawSprite(renderer, enemyships, current->obj->w, current->obj->h, current->obj->sprite_index, 0);
+                drawObject(renderer, enemyships,current->obj);
+            break;
+            case OBJ_SMALLBULLET:
+                drawObject(renderer, lasers,current->obj);
             break;
             default:
             break;
@@ -311,6 +340,16 @@ void ButtonHandler(InputButtons* input, SDL_Event* ev, uint8_t* abuttons)
         if(key == input->LEFT)     *abuttons &= ~BT_LEFT;
         if(key == input->RIGHT)    *abuttons &= ~BT_RIGHT;
     }
+    else if(ev->type == SDL_MOUSEBUTTONDOWN)
+    {
+        if(ev->button.button == input->SHOOT)    *abuttons |= BT_FIRE;
+        if(ev->button.button == input->ALTSHOOT) *abuttons |= BT_ALTFIRE;
+    }
+    else if(ev->type == SDL_MOUSEBUTTONUP)
+    {
+        if(ev->button.button == input->SHOOT)    *abuttons &= ~BT_FIRE;
+        if(ev->button.button == input->ALTSHOOT) *abuttons &= ~BT_ALTFIRE;
+    }
 }
 
 SDL_Keycode getKey(SDL_Event* e)
@@ -340,6 +379,8 @@ Image* loadImage(SDL_Renderer* r, char* file, int x, int y)
     img->surface = imgsurf;
     img->texture = imgtex;
     img->unit = imgunit;
+    img->spriteh = 32;
+    img->spritew = 32;
 
     printf("Resource loaded: %s; at: Image->%p\n     X->%i, Y->%i\n     W->%i, H->%i\n",file,img,img->unit.x,img->unit.y,img->unit.w,img->unit.h);
 
@@ -349,15 +390,17 @@ Image* loadImage(SDL_Renderer* r, char* file, int x, int y)
     return img;
 }
 
+Image* loadSprites(SDL_Renderer* r, char* file, int x, int y, int w, int h)
+{
+    Image* img = loadImage(r, file, x, y);
+    img->spritew = w;
+    img->spriteh = h;
+    return img;
+}
+
 void drawImage(SDL_Renderer* r, Image* img)
 {
     SDL_RenderCopy(r, img->texture, NULL, &img->unit);
-}
-
-void drawSprite(SDL_Renderer* r, Image* img, int width, int height, int col, int row)
-{
-    SDL_Rect spr = {col*width, row*height, col+width, row+height};
-    SDL_RenderCopy(r, img->texture, &spr, &img->unit);
 }
 
 void freeImage(Image* img)
