@@ -109,7 +109,6 @@ int main(int argc, char** argv)
                     }
                 }
             }
-            Draw();
             ticks_prev = SDL_GetTicks();
         }
          // Update objects/player.
@@ -120,6 +119,7 @@ int main(int argc, char** argv)
         float frametime = (float) (SDL_GetTicks() - ticks_prev);
         int framerate = (int) (1000/frametime);
         sprintf(title, "FPS: %i", framerate);
+        Draw();
     }
 
 
