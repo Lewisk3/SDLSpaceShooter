@@ -14,7 +14,7 @@ ObjectList* createObjectList()
 {
     ObjectList* olist = NULL;
     olist = malloc(sizeof(ObjectList));
-    olist->length = 0;
+    olist->length = 1;
     olist->objs = malloc(sizeof(ObjectNode));
     olist->objs->next = NULL;
 
@@ -55,7 +55,7 @@ Object* findObjectByType(ObjectList* base, int type, int index)
     ObjectNode* current = base->objs;
     while(current->obj != NULL && current->next != NULL)
     {
-        if(current->obj->type == type)
+        if(current->obj->AI.type == type)
         {
             if(i == index)
             {
@@ -69,6 +69,34 @@ Object* findObjectByType(ObjectList* base, int type, int index)
         current = current->next;
     }
     return NULL;
+}
+
+void removeObjectPtr(ObjectList* base, Object* optr)
+{
+    ObjectNode *prev = NULL;
+    ObjectNode *current = base->objs;
+
+    while(current->obj != optr && current != NULL)
+    {
+        prev = current;
+        current = current->next;
+    }
+    printf("%p = %p \n",base,optr);
+     printf("[ObjectManager: Info] Removing object %p \n", current);
+    if(current != NULL)
+    {
+        if(prev != NULL)
+        {
+            prev->next = current->next;
+        }
+        else
+        {
+            base->objs = current->next;
+        }
+        free(current);
+        base->length--;
+    }
+    return;
 }
 
 void removeObjectAt(ObjectList* base, int index)
