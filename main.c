@@ -72,6 +72,12 @@ void DrawObjects();
 void Initalize();
 void Draw();
 
+void AI_BasicEnemy(Object* ,Enemy* );
+void AI_Bullet(Object* ,Bullet* );
+void AI_Timed(Object* ,void* );
+void AI_AnimationTimed(Object* ,void* );
+void AI_Dead(Object* ,void* );
+
 int random_range(int, int);
 
 // Game Loop
@@ -142,7 +148,7 @@ int main(int argc, char** argv)
     free(basicback);
     free(lasers);
     free(impacts);
-   // free(gameobjects);
+    free(gameobjects);
     free(explosion);
     SDL_DestroyWindow(win);
     printf("Opened for %i seconds. \nClosed in %i milliseconds",((SDL_GetTicks()-runtime)/1000),SDL_GetTicks()-tmp);
