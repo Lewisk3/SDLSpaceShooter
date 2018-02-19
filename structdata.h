@@ -4,16 +4,20 @@
 #ifndef STRUCTDATA_H
 #define STRUCTDATA_H
 
-typedef enum
+#define WINDOW_WIDTH 320
+#define WINDOW_HEIGHT 480
+#define PI 3.14159
+
+typedef enum obj_types
 {
     OBJ_BASICENEMY,
-    OBJ_SMALLBULLET,
-    OBJ_DEAD,
-    IMG_TIMED,
+    OBJ_BULLET,
     OBJ_EXPLOSION,
+    IMG_TIMED,
+    OBJ_DEAD,
 } ObjectTypes;
 
-typedef struct
+typedef struct InputButtons
 {
     int FORWARD;
     int BACK;
@@ -24,18 +28,31 @@ typedef struct
 
 } InputButtons;
 
-typedef struct
+typedef struct Colors
+{
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
+} Colors;
+
+typedef struct Image
 {
    SDL_Surface* surface;
    SDL_Texture* texture;
    SDL_Rect unit;
    int spritew;
    int spriteh;
+   Colors* color;
+   uint8_t alpha;
+   double xscale;
+   double yscale;
+   SDL_BlendMode blend;
+   int frames;
    uint32_t deltatime;
    char* name;
 } Image;
 
-typedef struct
+typedef struct Player
 {
     Image* sprite;
     int width;
@@ -52,7 +69,7 @@ typedef struct
     int image_index;
 } Player;
 
-typedef struct
+typedef struct Background
 {
   Image* img;
   SDL_Rect cam;
@@ -60,46 +77,41 @@ typedef struct
 
 // Objects
 
-typedef struct
+// A thing list containing, type and tick function ptr.
+
+typedef struct ObjectLogic
 {
-    int type;
+    ObjectTypes type;
+    void* extend;                    // Pointer to extended struct.
+    void (*tick)(void*, void*);            // Pointer to tick method.
+} ObjectLogic;
+
+typedef struct obj_base
+{
+    struct ObjectLogic AI;
     int sprite_index;
-    uint32_t deltatime;
+    Image* sprite;
+    uint32_t* timers;
     double angle;
+    Colors* color;
+    uint8_t alpha;
     double xscale;
     double yscale;
+    SDL_BlendMode spriteblend;
     bool solid;
     SDL_Rect pos;
 
 } Object;
 
-typedef struct
+typedef struct Enemy
 {
-    int type;
-    int sprite_index;
-    uint32_t deltatime;
-    double angle;
-    double xscale;
-    double yscale;
-    bool solid;
-    SDL_Rect pos;
-
     int hp;
+    bool hit;
 
 } Enemy;
 
-
-typedef struct
+typedef struct Bullet
 {
-    int type;
-    int sprite_index;
-    uint32_t deltatime;
-    double angle;
-    double xscale;
-    double yscale;
-    bool solid;
-    SDL_Rect pos;
-
     int dmg;
     int speed;
     int xvel;
@@ -111,9 +123,10 @@ typedef struct node_object
 {
     Object* obj;
     struct node_object* next;
+
 } ObjectNode;
 
-typedef struct
+typedef struct ObjectList
 {
     int length;
     ObjectNode* objs;
