@@ -13,13 +13,8 @@
 #include "game_objects.h"
 #include "sprite_manager.h"
 
-
-#define WINDOW_WIDTH 320
-#define WINDOW_HEIGHT 480
 #define FRAMERATE 75
 #define PHYS_TICKS 60
-#define PI 3.14159
-
 
 enum {
     BT_FORWARD = 0x01,
@@ -34,7 +29,6 @@ typedef enum {
     GAME_RUNNING,
     GAME_PAUSED,
 } States;
-
 
 // Globals
     static int GameState = GAME_RUNNING;
@@ -54,6 +48,8 @@ typedef enum {
     static Image* lasers;
     static Image* impacts;
     static Image* explosion;
+    static uint32_t runtime;
+    static ObjectLogic* ObjectThinkers;
 
 // Declarations
 
@@ -70,7 +66,6 @@ void UpdateObjects();
 void DrawObjects();
 void Initalize();
 void Draw();
-
 
 int random_range(int, int);
 
@@ -128,10 +123,11 @@ int main(int argc, char** argv)
         int framerate = (int) (1000/frametime);
         sprintf(title, "FPS: %i", framerate);
 
-        Draw();
+       Draw();
     }
 
-
+    puts("Closing...");
+    uint32_t tmp = SDL_GetTicks();
     freeImage(plr->sprite);
     free(title);
     free(plr);
@@ -141,9 +137,10 @@ int main(int argc, char** argv)
     free(basicback);
     free(lasers);
     free(impacts);
-    free(gameobjects);
+   // free(gameobjects);
     free(explosion);
     SDL_DestroyWindow(win);
+    printf("Opened for %i seconds. \nClosed in %i milliseconds",((SDL_GetTicks()-runtime)/1000),SDL_GetTicks()-tmp);
     SDL_Quit();
     return 0;
 }
@@ -152,6 +149,7 @@ int main(int argc, char** argv)
 void Initalize()
 {
     srand(time(NULL));
+    runtime = SDL_GetTicks();
 
     // Load Resources / Allocate objects.
     ticks_prev = SDL_GetTicks();
@@ -171,12 +169,21 @@ void Initalize()
 
     gameobjects = createObjectList();
 
+    // Define ObjectThinkers
+    ObjectThinkers = calloc(sizeof(ObjectTypes), sizeof(ObjectLogic));
+    ObjectThinkers[OBJ_BASICENEMY] = *createObjectThinker(OBJ_BASICENEMY, &AI_BasicEnemy, sizeof(Enemy));
+    ObjectThinkers[OBJ_BULLET]     = *createObjectThinker(OBJ_BULLET, &AI_Bullet, sizeof(Bullet));
+    ObjectThinkers[OBJ_EXPLOSION]  = *createObjectThinker(OBJ_EXPLOSION, &AI_AnimationTimed, 0);
+    ObjectThinkers[IMG_TIMED]      = *createObjectThinker(IMG_TIMED, &AI_Timed, 0);
+    ObjectThinkers[OBJ_DEAD]       = *createObjectThinker(OBJ_DEAD, &AI_Dead, 0);
+
     int i;
     for(i = 0; i < 20; i++)
     {
-        Enemy* obj = createObject(OBJ_BASICENEMY,random_range(1, WINDOW_WIDTH-48),random_range(-550, 0),20,40,true,sizeof(Enemy));
+        Object* obj = createObject(ObjectThinkers[OBJ_BASICENEMY],enemyships,random_range(1, WINDOW_WIDTH-48),random_range(-550, 0),20,40,true);
+        Enemy*  enm = obj->AI.extend;
         obj->sprite_index = 2;
-        obj->hp = 20;
+        enm->hp = 20;
         addObject(gameobjects,obj);
     }
 
@@ -208,7 +215,6 @@ void Initalize()
 
 void Update()
 {
-
     if( SDL_GetTicks() > (int)(1000/PHYS_TICKS)+ticks_phys )
     {
         if(active_buttons & BT_FORWARD) plr->yvel -= plr->speed/plr->friction;
@@ -219,13 +225,14 @@ void Update()
         {
             if( (SDL_GetTicks() - plr->timers[0]) >= plr->firerate )
             {
-                register int i;
-                Bullet* newbullet = createObject(OBJ_SMALLBULLET, plr->xpos, plr->ypos - 18,8,22,true,sizeof(Bullet));
-                newbullet->angle = random_range(-5,5);
-                newbullet->speed = 15;
-                newbullet->dmg = 3;
-                addObject(gameobjects, newbullet);
-                plr->timers[0] = SDL_GetTicks();
+              //  Object* obj = createObject(ObjectThinkers[OBJ_EXPLOSION],explosion,plr->xpos, plr->ypos - 18,20,40,true);
+               Object* obj = createObject(ObjectThinkers[OBJ_BULLET], lasers, plr->xpos, plr->ypos - 18,8,22,true);
+               Bullet* newbullet = obj->AI.extend;
+               obj->angle = random_range(-5,5);
+               newbullet->speed = 15;
+               newbullet->dmg = 3;
+               addObject(gameobjects, obj);
+               plr->timers[0] = SDL_GetTicks();
             }
 
         }
@@ -260,62 +267,11 @@ void Update()
 
 void UpdateObjects()
 {
-    ObjectNode* current = gameobjects->objs;
-    int objID = 0;
+    ObjectNode* current = gameobjects->objs->next;
+    int objID = 1;
     while(current != NULL)
     {
-        if( current->obj->type == OBJ_DEAD)
-        {
-           if(current->next != NULL)current = current->next;
-           removeObjectAt(gameobjects, objID);
-        }
-        if( current->obj->type == OBJ_BASICENEMY)
-        {
-            Enemy* oenemy = current->obj;
-            if(oenemy->pos.y > WINDOW_HEIGHT+oenemy->pos.h)
-            {
-               oenemy->pos.y = random_range(-500,-50);
-               oenemy->pos.x = random_range(0, WINDOW_WIDTH-oenemy->pos.w);
-            }
-            oenemy->pos.y+=2;
-
-            if(oenemy->hp <= 0)
-            {
-                addObject(gameobjects, createObject(OBJ_EXPLOSION, oenemy->pos.x, oenemy->pos.y, 5,5,false, 0));
-                oenemy->type = OBJ_DEAD;
-            }
-        }
-        else if( current->obj->type == OBJ_SMALLBULLET)
-        {
-            Bullet* obullet = current->obj;
-            obullet->xvel = cos( (obullet->angle-90) * PI / 180)  * obullet->speed;
-            obullet->yvel = sin( (obullet->angle-90) * PI / 180 ) * obullet->speed;
-
-            obullet->pos.x += obullet->xvel;
-            obullet->pos.y += obullet->yvel;
-            Enemy* target = checkObjectCollide(gameobjects, obullet);
-            if(target != NULL && target->type != OBJ_SMALLBULLET)
-            {
-                target->hp-=obullet->dmg;
-                obullet->type = OBJ_DEAD;
-                Object* hit = createObject(IMG_TIMED, obullet->pos.x, obullet->pos.y, 5,5,false,0);
-                hit->deltatime = SDL_GetTicks();
-                hit->sprite_index = current->obj->sprite_index;
-                addObject(gameobjects, hit);
-            }
-            if(obullet->pos.y < 0) obullet->type = OBJ_DEAD;
-        }
-        else if( current->obj->type == IMG_TIMED)
-        {
-            if( (SDL_GetTicks() - current->obj->deltatime) >= 120 ) current->obj->type = OBJ_DEAD;
-        }
-        else if( current->obj->type == OBJ_EXPLOSION)
-        {
-           if(current->obj->sprite_index >= 15)
-           {
-              current->obj->type = OBJ_DEAD;
-           }
-        }
+        tickObject(current->obj);
         objID ++;
         current = current->next;
     }
@@ -332,26 +288,19 @@ void Draw()
 void DrawObjects()
 {
     // Draw player
-    drawSpriteEx(renderer, plr->sprite, plr->xpos, plr->ypos, plr->image_index, plr->angle, 1, 1, 0);
+    drawSpriteEx(renderer, plr->sprite, plr->xpos, plr->ypos, plr->image_index, plr->angle, 0);
 
-    ObjectNode* current = gameobjects->objs;
+
+    ObjectNode* current = gameobjects->objs->next;
     while(current != NULL)
     {
-        //printf("Object: %p \n", current );
-        switch(current->obj->type)
+        drawObject(renderer, current->obj);
+
+        //Animated objects
+        switch(current->obj->AI.type)
         {
-            case OBJ_BASICENEMY:
-                drawObject(renderer, enemyships,current->obj);
-            break;
-            case OBJ_SMALLBULLET:
-                drawObject(renderer, lasers,current->obj);
-                //animateSprite(renderer, lasers, 80, current->obj->pos.x, current->obj->pos.y, &current->obj->sprite_index, &current->obj->deltatime);
-            break;
-            case IMG_TIMED:
-                drawObject(renderer, impacts, current->obj);
-            break;
             case OBJ_EXPLOSION:
-                animateSprite(renderer, explosion, 80, current->obj->pos.x, current->obj->pos.y, &current->obj->deltatime, &current->obj->sprite_index);
+                animateSprite(renderer, current->obj->sprite, 80, current->obj->pos.x, current->obj->pos.y, &current->obj->timers[0], &current->obj->sprite_index, false);
             break;
         }
         current = current->next;
@@ -434,6 +383,14 @@ Image* loadImage(SDL_Renderer* r, char* file, int x, int y)
     img = malloc(sizeof(Image));
     img->name = file;
     img->surface = imgsurf;
+    img->color = malloc(sizeof(Colors));
+    img->color->r = 0xFF;
+    img->color->g = 0xFF;
+    img->color->b = 0xFF;
+    img->alpha = 0xFF;
+    img->xscale = 1.0;
+    img->blend = SDL_BLENDMODE_BLEND;
+    img->yscale = 1.0;
     img->texture = imgtex;
     img->unit = imgunit;
     img->spriteh = 32;
@@ -452,6 +409,9 @@ Image* loadSprites(SDL_Renderer* r, char* file, int x, int y, int w, int h)
     Image* img = loadImage(r, file, x, y);
     img->spritew = w;
     img->spriteh = h;
+    int maxind = (floor((img->surface->w) / img->spritew)-1);
+    int maxrows = img->surface->h/img->spriteh;
+    img->frames = (maxind+1)*maxrows;
     return img;
 }
 
@@ -471,3 +431,85 @@ int random_range(int minr, int maxr)
 {
     return rand() % ((maxr+1) - minr) + minr;
 }
+
+// AI Behavior
+
+void AI_BasicEnemy(Object* self, Enemy* self_ext)
+{
+    if(self->pos.y > WINDOW_HEIGHT+self->pos.h)
+    {
+       self->pos.y = random_range(-500,-50);
+       self->pos.x = random_range(0, WINDOW_WIDTH-self->pos.w);
+    }
+    self->pos.y+=2;
+
+    if(self_ext->hit)
+    {
+       self->color->g = 0x00;
+       self->color->b = 0x00;
+       self->spriteblend = SDL_BLENDMODE_ADD;
+       self_ext->hit = false;
+    }
+    else
+    {
+       self->color->g = 0xFF;
+       self->color->b = 0xFF;
+       self->spriteblend = SDL_BLENDMODE_BLEND;
+    }
+
+    if(self_ext->hp <= 0)
+    {
+        addObject(gameobjects, createObject(ObjectThinkers[OBJ_EXPLOSION], explosion, self->pos.x, self->pos.y, 5,5,false));
+        removeObjectPtr(gameobjects, self);
+        return;
+    }
+}
+
+void AI_Bullet(Object* self, Bullet* self_ext)
+{
+     self_ext->xvel = cos( (self->angle-90) * PI / 180 )  * self_ext->speed;
+     self_ext->yvel = sin( (self->angle-90) * PI / 180 ) * self_ext->speed;
+     self->pos.x += self_ext->xvel;
+     self->pos.y += self_ext->yvel;
+     Object* target = checkObjectCollide(gameobjects, self);
+   if(self->pos.y < 0)
+   {
+       removeObjectPtr(gameobjects, self);
+       return;
+   }
+   if(target != NULL && target->AI.type != OBJ_BULLET)
+    {
+       Enemy*  target_ext = target->AI.extend;
+       if( target->AI.type == OBJ_BASICENEMY )
+       {
+           target_ext->hp-=self_ext->dmg;
+           target_ext->hit = true;
+       }
+       Object* hit = createObject(ObjectThinkers[IMG_TIMED], impacts, self->pos.x, self->pos.y, 5,5,false);
+       hit->timers[0] = SDL_GetTicks();
+       hit->timers[1] = 120;
+       hit->sprite_index = self->sprite_index;
+       addObject(gameobjects, hit);
+       removeObjectPtr(gameobjects, self);
+       return;
+    }
+}
+
+void AI_Timed(Object* self, void* ext)
+{
+    if( (SDL_GetTicks() - self->timers[0]) >= self->timers[1] ) removeObjectPtr(gameobjects, self);
+}
+
+void AI_AnimationTimed(Object* self, void* ext)
+{
+    if(self->sprite_index >= self->sprite->frames)
+    {
+       removeObjectPtr(gameobjects, self);
+    }
+}
+
+void AI_Dead(Object* self, void* ext)
+{
+    removeObjectPtr(gameobjects, self);
+}
+
