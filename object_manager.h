@@ -7,5 +7,6 @@ Object* getObjectAt(ObjectList*, int);              // Get object from table ind
 void removeObjectAt(ObjectList**, int);             // Remove object at index.
 ObjectList* createObjectList();                     // Get created object list.
 Object* findObjectByType(ObjectList*, int, int);    // Returns object at found type, and iteration.
+void removeObjectPtr(ObjectList* , Object* );
 
 #endif // OBJECT_MANAGER_H
