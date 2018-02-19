@@ -1,139 +1,59 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
+
 #include "structdata.h"
 
 
-// List contains, type, sprite_index, hp, x, y, next object pointer.
-
-int countObjects(ObjectList* base)
+void drawSprite(SDL_Renderer* r, Image* img, int x, int y, int ind)
 {
-    return base->length;
+    int width = img->spritew;
+    int height = img->spriteh;
+    int maxind = floor((img->surface->w) / width)-1;
+    int row = floor( ind/(maxind+1) );
+    ind = (row > 0) ? ind-(maxind*row): ind;
+    SDL_Rect spr = {ind*width, row*height, width, height};
+    SDL_Rect spr_unit = img->unit;
+    spr_unit.x = x - (width/2);
+    spr_unit.y = y - (height/2);
+    spr_unit.w = width * img->xscale;
+    spr_unit.h = height * img->yscale;
+    SDL_SetTextureColorMod(img->texture, img->color->r, img->color->g, img->color->b);
+    SDL_SetTextureAlphaMod(img->texture, img->alpha);
+    SDL_SetTextureBlendMode(img->texture, img->blend);
+    SDL_RenderCopy(r, img->texture, &spr, &spr_unit);
 }
 
-ObjectList* createObjectList()
+void animateSprite(SDL_Renderer* r, Image* img, uint32_t spd, int x, int y, uint32_t* timer, int* ind, bool draw)
 {
-    ObjectList* olist = NULL;
-    olist = malloc(sizeof(ObjectList));
-    olist->length = 1;
-    olist->objs = malloc(sizeof(ObjectNode));
-    olist->objs->next = NULL;
-
-    return olist;
+    int anim = *ind;
+    if(draw)drawSprite(r, img, x, y, anim);
+    if( (SDL_GetTicks() - *timer) >= spd )
+    {
+        (*ind) ++;
+        int maxind = (floor((img->surface->w) / img->spritew)-1);
+        int maxrows = img->surface->h/img->spriteh;
+        if(*ind > (maxind+1)*maxrows) *ind = 0;
+        *timer = SDL_GetTicks();
+    }
 }
 
-void addObject(ObjectList* base, Object* value)
+void drawSpriteEx(SDL_Renderer* r, Image* img, int x, int y, int ind, double angle, SDL_RendererFlip flip)
 {
-    ObjectNode* current = base->objs;
-    while(current->obj != NULL && current->next != NULL)
-    {
-        current = current->next;
-    }
-    current->next = NULL;
-    current->next = malloc(sizeof(ObjectNode));
-    current->next->obj = value;
-    current->next->next = NULL;
-    printf("[ObjectManager: Info] Adding object: %p at %i\n", value, base->length);
-    base->length++;
-}
-
-Object* getObjectAt(ObjectList* base, int index)
-{
-    register int i = 0;
-    ObjectNode *tmp = NULL;
-    ObjectNode *current = base->objs;
-    while( (current->obj != NULL && current->next != NULL) && (i < index-1))
-    {
-        i++;
-        current = current->next;
-    }
-    return current->obj;
-}
-
-Object* findObjectByType(ObjectList* base, int type, int index)
-{
-    register int i = 0;
-    ObjectNode* current = base->objs;
-    while(current->obj != NULL && current->next != NULL)
-    {
-        if(current->obj->AI.type == type)
-        {
-            if(i == index)
-            {
-                return current->obj;
-            }
-            else
-            {
-                i++;
-            }
-        }
-        current = current->next;
-    }
-    return NULL;
-}
-
-void removeObjectPtr(ObjectList* base, Object* optr)
-{
-    ObjectNode *prev = NULL;
-    ObjectNode *current = base->objs;
-
-    while(current->obj != optr && current != NULL)
-    {
-        prev = current;
-        current = current->next;
-    }
-    printf("%p = %p \n",base,optr);
-     printf("[ObjectManager: Info] Removing object %p \n", current);
-    if(current != NULL)
-    {
-        if(prev != NULL)
-        {
-            prev->next = current->next;
-        }
-        else
-        {
-            base->objs = current->next;
-        }
-        free(current);
-        base->length--;
-    }
-    return;
-}
-
-void removeObjectAt(ObjectList* base, int index)
-{
-    printf("[ObjectManager: Info] Removing object at %i \n", index-1);
-    if(index > base->length)
-    {
-        printf("[ObjectManager: Fatal Error] Invalid node index: %i > %i \n",index-1, base->length);
-        return;
-    }
-    ObjectNode *prev = NULL;
-    ObjectNode *current = base->objs;
-
-
-    // Loop through each element until index is reached.
-    while(index-- > 0 && current != NULL)
-    {
-        prev = current;
-        current = current->next;
-    }
-    // If we have an object after this one.
-    if(current != NULL)
-    {
-        // If we have an object before this one, set its next to the one after us.
-        if(prev != NULL)
-        {
-            prev->next = current->next;
-        }
-        else
-        {
-            // If we don't simply set us to the next element in our list.
-            base->objs = current->next;
-        }
-
-        // Deallocate us.
-        free(current);
-        base->length--;
-    }
-    return;
+    int width = img->spritew;
+    int height = img->spriteh;
+    int maxind = floor((img->surface->w) / width)-1;
+    int row = floor( ind/(maxind+1) );
+    ind = (row > 0) ? ind-(maxind*row): ind;
+    SDL_Rect spr = {ind*width, row*height, ind+width, height};
+    SDL_Rect unit_ex = img->unit;
+    unit_ex.w = width*img->xscale;
+    unit_ex.h = height*img->yscale;
+    unit_ex.x = x - (width/2);
+    unit_ex.y = y - (height/2);
+    SDL_SetTextureColorMod(img->texture, img->color->r, img->color->g, img->color->b);
+    SDL_SetTextureAlphaMod(img->texture, img->alpha);
+    SDL_SetTextureBlendMode(img->texture, img->blend);
+    SDL_RenderCopyEx(r, img->texture, &spr, &unit_ex, angle, NULL, flip);
 }
