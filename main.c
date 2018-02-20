@@ -213,7 +213,7 @@ void Initalize()
     plr->sprite = playerships;
     plr->width  = 20;
     plr->height = 40;
-    plr->firerate = 100;
+    plr->firerate = 0;
     plr->speed  = 6;
     plr->image_index = 2;
     plr->friction = 3.8;
@@ -239,7 +239,7 @@ void Update()
               //  Object* obj = createObject(ObjectThinkers[OBJ_EXPLOSION],explosion,plr->xpos, plr->ypos - 18,20,40,true);
                Object* obj = createObject(ObjectThinkers[OBJ_BULLET], lasers, plr->xpos, plr->ypos - 18,8,22,true);
                Bullet* newbullet = obj->AI.extend;
-               obj->angle = random_range(-5,5);
+               obj->angle = random_range(-30,30);
                newbullet->speed = 15;
                newbullet->dmg = 3;
                addObject(gameobjects, obj);
@@ -284,7 +284,6 @@ void UpdateObjects()
     {
         tickObject(current->obj);
         objID ++;
-        current = current->next;
     }
 }
 
@@ -305,7 +304,7 @@ void DrawObjects()
     ObjectNode* current = gameobjects->objs->next;
     while(current != NULL)
     {
-        drawObject(renderer, current->obj);
+        if(current->obj != NULL)drawObject(renderer, current->obj);
 
         //Animated objects
         switch(current->obj->AI.type)
@@ -496,10 +495,12 @@ void AI_Bullet(Object* self, Bullet* self_ext)
            target_ext->hp-=self_ext->dmg;
            target_ext->hit = true;
        }
-       Object* hit = createObject(ObjectThinkers[IMG_TIMED], impacts, self->pos.x, self->pos.y, 5,5,false);
-       hit->timers[0] = SDL_GetTicks();
-       hit->timers[1] = 120;
-       hit->sprite_index = self->sprite_index;
+       Object* hit = createObject(ObjectThinkers[OBJ_EXPLOSION], explosion, self->pos.x, self->pos.y, 5,5,false);
+       hit->xscale = 0.25;
+       hit->yscale = 0.25;
+      // hit->timers[0] = SDL_GetTicks();
+      // hit->timers[1] = 120;
+      // hit->sprite_index = self->sprite_index;
        addObject(gameobjects, hit);
        removeObjectPtr(gameobjects, self);
        return;
