@@ -17,6 +17,7 @@
 #define WINDOW_WIDTH 320
 #define WINDOW_HEIGHT 480
 #define PI 3.14159
+#define RAD 3.15159/180
 
 #define FRAMERATE 75
 #define PHYS_TICKS 60
@@ -53,7 +54,6 @@ typedef enum {
     static Image* lasers;
     static Image* impacts;
     static Image* explosion;
-    static uint32_t runtime;
     static ObjectLogic* ObjectThinkers;
 
 // Declarations
@@ -137,21 +137,18 @@ int main(int argc, char** argv)
        Draw();
     }
 
-    puts("Closing...");
     uint32_t tmp = SDL_GetTicks();
     freeImage(plr->sprite);
     free(title);
     free(plr);
     free(plr->timers);
-    free(playerships);
-    free(enemyships);
-    free(basicback);
-    free(lasers);
-    free(impacts);
-    free(gameobjects);
-    free(explosion);
+    freeImage(enemyships);
+    freeImage(basicback);
+    freeImage(lasers);
+    freeImage(impacts);
+    //free(gameobjects);
+    freeImage(explosion);
     SDL_DestroyWindow(win);
-    printf("Opened for %i seconds. \nClosed in %i milliseconds",((SDL_GetTicks()-runtime)/1000),SDL_GetTicks()-tmp);
     SDL_Quit();
     return 0;
 }
@@ -160,7 +157,6 @@ int main(int argc, char** argv)
 void Initalize()
 {
     srand(time(NULL));
-    runtime = SDL_GetTicks();
 
     // Load Resources / Allocate objects.
     ticks_prev = SDL_GetTicks();
@@ -189,15 +185,18 @@ void Initalize()
     ObjectThinkers[OBJ_DEAD]       = *createObjectThinker(OBJ_DEAD, &AI_Dead, 0);
 
     int i;
-    for(i = 0; i < 20; i++)
+    for(i = 0; i < 30; i++)
     {
-        Object* obj = createObject(ObjectThinkers[OBJ_BASICENEMY],enemyships,random_range(1, WINDOW_WIDTH-48),random_range(-550, 0),20,40,true);
+        Object* obj = createObject(ObjectThinkers[OBJ_BASICENEMY],enemyships,random_range(1, WINDOW_WIDTH-48),random_range(-550, 0),35,20,true);
         Enemy*  enm = obj->AI.extend;
         obj->sprite_index = 2;
-        enm->hp = 20;
+        enm->hp = 12;
         addObject(gameobjects,obj);
     }
 
+    //Object* obj = createObject(ObjectThinkers[OBJ_EXPLOSION],eevee,48,48,48,48,false);
+    //obj->timers[0] = 139;
+    //addObject(gameobjects,obj);
 
     levelbg = malloc(sizeof(Background));
     levelbg->img = basicback;
@@ -216,7 +215,7 @@ void Initalize()
     plr->firerate = 100;
     plr->speed  = 6;
     plr->image_index = 2;
-    plr->friction = 3.8;
+    plr->friction = 2.6;
     plr->sprite->unit.w = plr->width;
     plr->sprite->unit.h = plr->height;
     plr->xpos = (WINDOW_WIDTH - plr->width)/2;
@@ -229,9 +228,9 @@ void Update()
     if( SDL_GetTicks() > (int)(1000/PHYS_TICKS)+ticks_phys )
     {
         if(active_buttons & BT_FORWARD) plr->yvel -= plr->speed/plr->friction;
-        if(active_buttons & BT_BACK) plr->yvel += plr->speed/plr->friction;
-        if(active_buttons & BT_LEFT) plr->xvel -= plr->speed/plr->friction;
-        if(active_buttons & BT_RIGHT) plr->xvel += plr->speed/plr->friction;
+        if(active_buttons & BT_BACK)    plr->yvel += plr->speed/plr->friction;
+        if(active_buttons & BT_LEFT)    plr->xvel -= plr->speed/plr->friction;
+        if(active_buttons & BT_RIGHT)   plr->xvel += plr->speed/plr->friction;
         if(active_buttons & BT_FIRE)
         {
             if( (SDL_GetTicks() - plr->timers[0]) >= plr->firerate )
@@ -252,8 +251,6 @@ void Update()
         if(plr->xvel < -plr->speed) plr->xvel = -plr->speed;
         if(plr->yvel >  plr->speed) plr->yvel = plr->speed;
         if(plr->yvel < -plr->speed) plr->yvel = -plr->speed;
-        if(!(active_buttons & BT_FORWARD) && !(active_buttons & BT_BACK)) plr->yvel /= plr->friction;
-        if(!(active_buttons & BT_LEFT) && !(active_buttons & BT_RIGHT))   plr->xvel /= plr->friction;
              // Update Player
         plr->xpos += plr->xvel;
         plr->ypos += plr->yvel;
@@ -265,6 +262,12 @@ void Update()
         if(plr->xvel < 0) plr->image_index = 1;
         if(abs(plr->xvel) <= 0.5) plr->image_index = 2;
         if(plr->xvel <= -plr->speed) plr->image_index = 0;
+        if(!(active_buttons & BT_FORWARD) && plr->yvel > 0) plr->yvel -= plr->speed/(plr->friction*4);
+        if(!(active_buttons & BT_BACK)    && plr->yvel < 0) plr->yvel += plr->speed/(plr->friction*4);
+        if(!(active_buttons & BT_LEFT)    && plr->xvel < 0) plr->xvel += plr->speed/(plr->friction*4);
+        if(!(active_buttons & BT_RIGHT)   && plr->xvel > 0) plr->xvel -= plr->speed/(plr->friction*4);
+        if(abs(plr->xvel) < (plr->friction/4)) plr->xvel = 0;
+        if(abs(plr->yvel) < (plr->friction/4)) plr->yvel = 0;
              //Scroll background
         levelbg->cam.y -= 1;
         if(levelbg->cam.y <= 0)
@@ -278,7 +281,7 @@ void Update()
 
 void UpdateObjects()
 {
-    ObjectNode* current = gameobjects->objs->next;
+    ObjectNode* current = gameobjects->first;
     int objID = 1;
     while(current != NULL)
     {
@@ -302,18 +305,10 @@ void DrawObjects()
     drawSpriteEx(renderer, plr->sprite, plr->xpos, plr->ypos, plr->image_index, plr->angle, 0);
 
 
-    ObjectNode* current = gameobjects->objs->next;
+    ObjectNode* current = gameobjects->first;
     while(current != NULL)
     {
-        drawObject(renderer, current->obj);
-
-        //Animated objects
-        switch(current->obj->AI.type)
-        {
-            case OBJ_EXPLOSION:
-                animateSprite(renderer, current->obj->sprite, 80, current->obj->pos.x, current->obj->pos.y, &current->obj->timers[0], &current->obj->sprite_index, false);
-            break;
-        }
+        if(current->obj != NULL)drawObject(renderer, current->obj);
         current = current->next;
     }
 }
@@ -453,7 +448,6 @@ void AI_BasicEnemy(Object* self, Enemy* self_ext)
        self->pos.x = random_range(0, WINDOW_WIDTH-self->pos.w);
     }
     self->pos.y+=2;
-
     if(self_ext->hit)
     {
        self->color->g = 0x00;
@@ -467,10 +461,23 @@ void AI_BasicEnemy(Object* self, Enemy* self_ext)
        self->color->b = 0xFF;
        self->spriteblend = SDL_BLENDMODE_BLEND;
     }
-
+    // Don't clump together pls!
+    Object* target = checkObjectCollide(gameobjects, self);
+    if(target != NULL && target->AI.type == OBJ_BASICENEMY)
+    {
+        int xoffs=0;
+        int yoffs=0;
+        moveOutsideRect(self->pos,target->pos,&xoffs,&yoffs,1);
+        self->pos.x += xoffs;
+        self->pos.y += yoffs;
+        target->pos.x -= xoffs;
+        target->pos.y -= yoffs;
+    }
     if(self_ext->hp <= 0)
     {
-        addObject(gameobjects, createObject(ObjectThinkers[OBJ_EXPLOSION], explosion, self->pos.x, self->pos.y, 5,5,false));
+        Object* exp = createObject(ObjectThinkers[OBJ_EXPLOSION], explosion, self->pos.x, self->pos.y, 5,5,false);
+        exp->timers[0] = 27;
+        addObject(gameobjects, exp);
         removeObjectPtr(gameobjects, self);
         return;
     }
@@ -478,12 +485,12 @@ void AI_BasicEnemy(Object* self, Enemy* self_ext)
 
 void AI_Bullet(Object* self, Bullet* self_ext)
 {
-     self_ext->xvel = cos( (self->angle-90) * PI / 180 )  * self_ext->speed;
-     self_ext->yvel = sin( (self->angle-90) * PI / 180 ) * self_ext->speed;
+     self_ext->xvel = cos( (self->angle-90) * (PI/180) )  * self_ext->speed;
+     self_ext->yvel = sin( (self->angle-90) * (PI/180) ) * self_ext->speed;
      self->pos.x += self_ext->xvel;
      self->pos.y += self_ext->yvel;
      Object* target = checkObjectCollide(gameobjects, self);
-   if(self->pos.y < 0)
+   if(self->pos.y < -self->pos.h)
    {
        removeObjectPtr(gameobjects, self);
        return;
@@ -493,13 +500,16 @@ void AI_Bullet(Object* self, Bullet* self_ext)
        Enemy*  target_ext = target->AI.extend;
        if( target->AI.type == OBJ_BASICENEMY )
        {
-           target_ext->hp-=self_ext->dmg;
-           target_ext->hit = true;
+          target_ext->hp-=self_ext->dmg;
+          target_ext->hit = true;
        }
-       Object* hit = createObject(ObjectThinkers[IMG_TIMED], impacts, self->pos.x, self->pos.y, 5,5,false);
-       hit->timers[0] = SDL_GetTicks();
-       hit->timers[1] = 120;
-       hit->sprite_index = self->sprite_index;
+       Object* hit = createObject(ObjectThinkers[OBJ_EXPLOSION], explosion, self->pos.x, self->pos.y, 5,5,false);
+       hit->xscale = 0.25;
+       hit->yscale = 0.25;
+       hit->timers[0] = 27;
+       //hit->timers[0] = SDL_GetTicks();
+       //hit->timers[1] = 120;
+       //hit->sprite_index = self->sprite_index;
        addObject(gameobjects, hit);
        removeObjectPtr(gameobjects, self);
        return;
@@ -516,7 +526,9 @@ void AI_AnimationTimed(Object* self, void* ext)
     if(self->sprite_index >= self->sprite->frames)
     {
        removeObjectPtr(gameobjects, self);
+       return;
     }
+    animateSprite(renderer, self->sprite, self->timers[0], self->pos.x, self->pos.y, &self->timers[1], &self->sprite_index, false);
 }
 
 void AI_Dead(Object* self, void* ext)
