@@ -7,5 +7,7 @@ void tickObject(Object* );
 void objectImageTransform(Image* ,Object* );
 Object* checkObjectCollide(ObjectList* ,Object* );
 void drawObject(SDL_Renderer* ,Object* );
+double point_direction(int, int, int, int);
+void moveOutsideRect(SDL_Rect, SDL_Rect, int* , int* , int);
 
 #endif // GAME_OBJECTS_H
