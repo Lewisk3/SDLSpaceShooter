@@ -14,16 +14,28 @@ ObjectList* createObjectList()
 {
     ObjectList* olist = NULL;
     olist = malloc(sizeof(ObjectList));
-    olist->length = 1;
+    olist->length = 0;
     olist->objs = malloc(sizeof(ObjectNode));
     olist->objs->next = NULL;
-
+    olist->first = NULL;
+    olist->last = NULL;
     return olist;
 }
 
 void addObject(ObjectList* base, Object* value)
 {
-    ObjectNode* current = base->objs;
+    ObjectNode* current = base->first;
+    if(current == NULL)
+    {
+        printf("[ObjectManager: Info] Adding first object to list: %p \n",value);
+        base->length = 1;
+        base->objs = malloc(sizeof(ObjectNode));
+        base->objs->next = NULL;
+        base->objs->obj = value;
+        base->first = base->objs;
+        base->last = NULL;
+        return;
+    }
     while(current->obj != NULL && current->next != NULL)
     {
         current = current->next;
@@ -33,6 +45,7 @@ void addObject(ObjectList* base, Object* value)
     current->next->obj = value;
     current->next->next = NULL;
     printf("[ObjectManager: Info] Adding object: %p at %i\n", value, base->length);
+    if(base->first == NULL)base->first = current->next;
     base->length++;
 }
 
@@ -74,15 +87,14 @@ Object* findObjectByType(ObjectList* base, int type, int index)
 void removeObjectPtr(ObjectList* base, Object* optr)
 {
     ObjectNode *prev = NULL;
-    ObjectNode *current = base->objs;
+    ObjectNode *current = base->first;
 
     while(current->obj != optr && current != NULL)
     {
         prev = current;
         current = current->next;
     }
-    printf("%p = %p \n",base,optr);
-     printf("[ObjectManager: Info] Removing object %p \n", current);
+    printf("[ObjectManager: Info] Removing object %i (Len: %i)\n", current,base->length);
     if(current != NULL)
     {
         if(prev != NULL)
@@ -93,15 +105,18 @@ void removeObjectPtr(ObjectList* base, Object* optr)
         {
             base->objs = current->next;
         }
+        if(current == base->first)base->first = current->next;
+        if(current == base->last && prev != NULL)base->last = prev;
         free(current);
         base->length--;
+
     }
     return;
 }
 
 void removeObjectAt(ObjectList* base, int index)
 {
-    printf("[ObjectManager: Info] Removing object at %i \n", index-1);
+    printf("[ObjectManager: Info] Removing object at %i \n (Length %i)", index-1,base->length);
     if(index > base->length)
     {
         printf("[ObjectManager: Fatal Error] Invalid node index: %i > %i \n",index-1, base->length);
@@ -131,6 +146,9 @@ void removeObjectAt(ObjectList* base, int index)
             base->objs = current->next;
         }
 
+        if(current == base->first && current->next != NULL)base->first = current->next;
+        if(current == base->first && current->next == NULL)base->first = NULL;
+        if(current == base->last && prev != NULL)base->last = prev;
         // Deallocate us.
         free(current);
         base->length--;
