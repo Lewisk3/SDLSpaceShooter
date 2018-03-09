@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 #include "structdata.h"
 #include "sprite_manager.h"
 
@@ -64,7 +65,7 @@ void drawObject(SDL_Renderer* r, Object* obj)
     objectImageTransform(obj);
     drawSpriteEx(r, obj->sprite, obj->pos.x, obj->pos.y, obj->sprite_index, obj->angle, 0);
     //SDL_SetRenderDrawColor(r, 0xA0, 0x00, 0xA0, 0xFF);
-    //SDL_Rect objbox = {obj->x - (obj->w/2), obj->y - (obj->h/2), obj->w, obj->h};
+    //SDL_Rect objbox = {obj->pos.x - (obj->pos.w/2), obj->pos.y - (obj->pos.h/2), obj->pos.w, obj->pos.h};
     //SDL_RenderDrawRect(r, &objbox);
 }
 
@@ -73,9 +74,22 @@ void tickObject(Object* obj)
   obj->AI.tick(obj, obj->AI.extend);
 }
 
+double point_direction(int x, int y, int xx, int yy)
+{
+    return atan2(yy - y, xx - x);
+}
+
+void moveOutsideRect(SDL_Rect one, SDL_Rect two, int* xvel, int* yvel, int spd)
+{
+    double dir = point_direction(one.x,one.y,two.x,two.y);
+    (*xvel) = -round(cos(dir) * spd);
+    (*yvel) = -round(sin(dir) * spd);
+}
+
 Object* checkObjectCollide(ObjectList* base, Object* obj)
 {
-    ObjectNode* current = base->objs->next;
+    //puts("Begin Collide");
+    ObjectNode* current = base->first;
     while(current != NULL)
     {
         if(current->obj->AI.type != OBJ_DEAD && current->obj->solid)
@@ -93,10 +107,12 @@ Object* checkObjectCollide(ObjectList* base, Object* obj)
             SDL_Rect _results;
             if (SDL_IntersectRect(&boxone, &boxtwo, &_results))
             {
+              //  puts("End Collide");
                 return current->obj;
             }
         }
         current = current->next;
     }
+  //  puts("End Collide");
     return NULL;
 }
