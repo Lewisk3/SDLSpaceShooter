@@ -126,6 +126,8 @@ typedef struct ObjectList
 {
     int length;
     ObjectNode* objs;
+    ObjectNode* first;
+    ObjectNode* last;
 
 } ObjectList;
 
